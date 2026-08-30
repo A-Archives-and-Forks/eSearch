@@ -2797,7 +2797,8 @@ function fixSettingTree() {
     if (store.get("设置版本") === app.getVersion() && !dev) return;
     versionTrans();
     store.set("设置版本", app.getVersion());
-    store.set("网络.github镜像.启用", matchBestLan() === "zh-HANS");
+    if (store.get("网络.github镜像.启用") === undefined)
+        store.set("网络.github镜像.启用", matchBestLan() === "zh-HANS");
 }
 
 function versionTrans() {
@@ -2879,7 +2880,12 @@ function githubUrl(_path: string, _type: GithubUrlType | "auto" = "auto") {
     function bp(x: string) {
         return x.replace(/^\//, "");
     }
-    if (!s.启用 && _type === "auto") return _path;
+    if (!s.启用) {
+        if (_type === "auto") return _path;
+        return _type === "api"
+            ? `https://api.github.com/${bp(_path)}`
+            : `https://github.com/${bp(_path)}`;
+    }
     const { path, type } =
         _type === "auto" ? githubPath(_path) : { path: _path, type: _type };
     if (type === "api") {
