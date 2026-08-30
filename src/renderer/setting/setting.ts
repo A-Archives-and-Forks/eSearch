@@ -95,6 +95,7 @@ type JustElmentK =
     | "_default_setting"
     | "_location"
     | "_logs"
+    | "_inpaint"
     | "_version"
     | "_exit";
 
@@ -1865,6 +1866,11 @@ const xs: Record<
             return view().class(blockSetting).add(el);
         },
     },
+    _inpaint: {
+        name: "魔法橡皮模型",
+        desc: "高级图片编辑中魔法橡皮使用的模型",
+        el: () => inpaintEl(),
+    },
     _theme: {
         name: "样式预览",
         el: () =>
@@ -2210,6 +2216,7 @@ const main: {
         pageName: "人工智能",
         desc: "配置OCR、录屏背景移除等人工智能",
         settings: ["AI.运行后端", "AI.在线模型"],
+        items: [{ title: "魔法橡皮模型", settings: ["_inpaint"] }],
     },
     {
         pageName: "录屏",
@@ -4262,6 +4269,86 @@ function hotkey() {
         .bindSet((v: string) => cvalue((v ?? "").split("+")))
         .bindGet(() => mainKey)
         .sv("");
+}
+
+function inpaintEl() {
+    const configPath = renderSendSync("userDataPath", []);
+    const dir = path.join(configPath, "models", "inpaint");
+    const file = path.join(dir, "migan_pipeline_v2.onnx");
+
+    const el = view("x", "wrap")
+        .class(Class.gap)
+        .style({ "align-items": "center" });
+
+    function render() {
+        const exists = fs.existsSync(file);
+        el.clear().add([
+            txt(exists ? t("已下载") : t("未下载")),
+            button(exists ? t("重新下载") : t("下载")).on("click", () => {
+                const pro = (() => {
+                    const mel = view().style({
+                        overflow: "hidden",
+                        width: baseWidth,
+                        height: "20px",
+                        borderRadius: "var(--border-radius)",
+                        backgroundColor: cssColor.bb,
+                    });
+                    const bel = view().style({
+                        width: "100%",
+                        height: "100%",
+                        backgroundColor: cssColor.main,
+                    });
+                    return mel.add(bel).bindSet((v: number) => {
+                        bel.style({
+                            width: `${Math.floor(v * 100)}%`,
+                        });
+                    });
+                })();
+                el.clear().add(pro);
+                const url = githubUrl(
+                    "xushengfeng/eSearch/releases/download/13.1.6/migan_pipeline_v2.onnx",
+                    "base",
+                );
+                fetch(url).then(async (res) => {
+                    if (!res.ok) {
+                        throw new Error(
+                            `下载失败: ${res.status} ${res.statusText}`,
+                        );
+                    }
+                    if (!res.body) {
+                        throw new Error("响应体中无数据");
+                    }
+                    const contentLength = res.headers.get("content-length");
+                    const totalBytes = contentLength
+                        ? Number.parseInt(contentLength)
+                        : undefined;
+                    const reader = res.body.getReader();
+                    let downloadedBytes = 0;
+                    const chunks = [];
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+                        chunks.push(value);
+                        downloadedBytes += value.length;
+                        if (totalBytes) pro.sv(downloadedBytes / totalBytes);
+                    }
+                    const b = Buffer.from(await new Blob(chunks).arrayBuffer());
+                    fs.mkdirSync(dir, { recursive: true });
+                    fs.writeFileSync(file, b);
+                    render();
+                });
+            }),
+            exists
+                ? button(t("删除")).on("click", () => {
+                      fs.rmSync(dir, { recursive: true, force: true });
+                      render();
+                  })
+                : null,
+        ]);
+    }
+    render();
+
+    return view().class(blockSetting).add(el);
 }
 
 function ocrEl() {

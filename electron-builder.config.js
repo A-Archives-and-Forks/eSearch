@@ -114,13 +114,6 @@ const beforePack = async () => {
             "./assets/onnx/seg/",
         );
     }
-    if (!checkPath("./assets/onnx/inpaint")) {
-        ensureDir("./assets/onnx/inpaint");
-        await download(
-            `${githubUrl}/xushengfeng/eSearch/releases/download/13.1.6/migan_pipeline_v2.onnx`,
-            "./assets/onnx/inpaint/",
-        );
-    }
     if (process.platform === "win32" && !checkPath("./lib/copy.exe")) {
         fs.writeFileSync(
             "./lib/copy.exe",

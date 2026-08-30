@@ -21,7 +21,7 @@ import { Class, cssVar, getImgUrl, initStyle, setTitle } from "../root/root";
 // biome-ignore format:
 const { nativeImage } = window.require("electron") as typeof import("electron");
 import { writeImage } from "../lib/clipboard";
-const { writeFileSync } = require("node:fs") as typeof import("fs");
+const { existsSync, writeFileSync } = require("node:fs") as typeof import("fs");
 const { join } = require("node:path") as typeof import("path");
 const ort = require("onnxruntime-node") as typeof import("onnxruntime-node");
 import { renderOn, renderSend, renderSendSync } from "../../../lib/ipc";
@@ -31,6 +31,25 @@ import removeobj from "../lib/removeObj";
 
 function icon(src: IconType) {
     return image(getImgUrl(`${src}.svg`), noI18n("icon")).class("icon");
+}
+
+function alert(m: string) {
+    const d = ele("dialog")
+        .add(
+            view("y")
+                .add([
+                    t(m),
+                    button(t("确定"))
+                        .on("click", () => {
+                            d.remove();
+                        })
+                        .style({ width: "auto" }),
+                ])
+                .class(Class.gap),
+        )
+        .class(Class.glassBar)
+        .addInto();
+    d.el.showModal();
 }
 
 initStyle(store);
@@ -632,18 +651,19 @@ function updatePreview() {
 
 async function magicPen() {
     if (!maskOrt) {
-        maskOrt = await ort.InferenceSession.create(
-            join(
-                __dirname,
-                "../../assets/onnx/inpaint",
-                "migan_pipeline_v2.onnx",
-            ),
-            {
-                executionProviders: [
-                    { name: store.get("AI.运行后端") || "cpu" },
-                ],
-            },
+        const modelPath = join(
+            renderSendSync("userDataPath", []),
+            "models",
+            "inpaint",
+            "migan_pipeline_v2.onnx",
         );
+        if (!existsSync(modelPath)) {
+            alert("未下载魔法橡皮模型，请在设置的“人工智能”页面下载");
+            return;
+        }
+        maskOrt = await ort.InferenceSession.create(modelPath, {
+            executionProviders: [{ name: store.get("AI.运行后端") || "cpu" }],
+        });
     }
     if (!photo || !photoSrc) return;
     const w = photo.naturalWidth;
